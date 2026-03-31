@@ -74,8 +74,3 @@ session.commit()
 session.close()
 
 print("✅ Seeding completed.")
-
-session.commit()
-session.close()
-
-print("Seeding completed.")

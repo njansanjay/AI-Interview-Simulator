@@ -35,7 +35,3 @@ class InterviewResult(Base):
     total_questions = Column(Integer)
 
 Base.metadata.create_all(engine)
-    score = Column(Float)  # store avg score
-    total_questions = Column(Integer)
-
-Base.metadata.create_all(engine)

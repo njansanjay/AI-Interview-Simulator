@@ -1,10 +1,10 @@
 import random
 import os
+import uvicorn
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -13,7 +13,6 @@ from fastapi import Depends
 from db import SessionLocal, Question, InterviewResult, User
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from passlib.hash import bcrypt
 from utils import embed
 
@@ -47,7 +46,7 @@ def create_access_token(data: dict):
 # ✅ CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -573,6 +572,6 @@ def delete_result_admin(id: int, authorization: str = Header(None)):
 
     session.close()
     return {"message": "Deleted"}
-    
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000)

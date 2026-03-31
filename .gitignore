@@ -6,10 +6,12 @@ backend/__pycache__/
 # Node
 frontend/node_modules/
 
-# Build
-.dist/
+# Env
+.env
+backend/.env
 
-# OS
-.DS_Store
+# DB
+*.db
 
-backend/.env/
+# Tokens
+token.txt
