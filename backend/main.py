@@ -1,18 +1,26 @@
-from openai import OpenAI
-
-client = OpenAI(api_key="YOUR_API_KEY")
 import random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from db import SessionLocal, Question, InterviewResult
+
 app = FastAPI()
 
-# load model
+users = {
+    "user": {"password": "123", "role": "user"},
+    "admin": {"password": "admin123", "role": "admin"}
+}
+
+# ✅ load model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# CORS
+# ✅ embedding function (YOU WERE MISSING THIS)
+def embed(text):
+    return model.encode(text)
+
+# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,111 +29,337 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# scoring function
-def get_score(user_answer, ideal_answer):
-    emb1 = model.encode([user_answer])
-    emb2 = model.encode([ideal_answer])
-    score = cosine_similarity(emb1, emb2)[0][0]
-    return float(score)
+# =========================
+# ✅ FIND BEST QUESTION
+# =========================
+
+def find_best_match(user_question):
+    session = SessionLocal()
+    questions = session.query(Question).all()
+
+    user_emb = embed(user_question)
+
+    best_score = -1
+    best_q = None
+
+    for q in questions:
+        score = cosine_similarity([user_emb], [q.embedding])[0][0]
+
+        if score > best_score:
+            best_score = score
+            best_q = q
+
+    session.close()
+    return best_q, float(best_score)
+
+
+# =========================
+# ✅ FEEDBACK
+# =========================
+
+def get_feedback(answer):
+    feedback = []
+
+    if len(answer.split()) < 5:
+        feedback.append("Answer is too short.")
+
+    if "example" in answer.lower():
+        feedback.append("Good use of example.")
+
+    if "because" in answer.lower():
+        feedback.append("Explanation is clear.")
+
+    if not feedback:
+        feedback.append("Decent answer.")
+
+    return " ".join(feedback)
+
 
 @app.get("/")
 def home():
     return {"message": "API working"}
 
-# questions
-# questions = [
-#     {"id": 1, "question": "Explain REST API"},
-#     {"id": 2, "question": "What is OOP?"}
-# ]
+@app.post("/login")
+def login(data: dict):
+    username = data.get("username")
+    password = data.get("password")
 
-# @app.get("/questions")
-# def get_questions():
-#     return questions
+    user = users.get(username)
 
-# ideal answers
-ideal_answers = {
-    1: "REST API allows communication between systems using HTTP",
-    2: "OOP is a programming paradigm based on objects and classes"
-}
+    if not user or user["password"] != password:
+        return {"success": False}
 
-# topics
-topics = {
-    "os": [
-        "What is process vs thread?",
-        "Explain deadlock",
-        "What is paging?"
-    ],
-    "dbms": [
-        "What is normalization?",
-        "Explain ACID properties",
-        "What is indexing?"
-    ],
-    "oops": [
-        "What is polymorphism?",
-        "Explain inheritance",
-        "What is encapsulation?"
-    ]
-}
+    return {
+        "success": True,
+        "role": user["role"]
+    }
+
+
+
+# =========================
+# ✅ GENERATE QUESTION
+# =========================
+
+used_questions = set()
+
+used_questions = set()
 
 @app.get("/generate-question/{topic}")
 def generate_question(topic: str):
-    if topic.lower() not in topics:
-        return {"question": "Invalid topic"}
+    session = SessionLocal()
 
-    return {"question": random.choice(topics[topic.lower()])}
+    questions = session.query(Question).filter_by(topic=topic.lower()).all()
 
-# submit answer
-@app.post("/submit")
-def submit_answer(data: dict):
-    q_id = data["id"]
-    user_ans = data["answer"]
+    if not questions:
+        session.close()
+        return {"question": "No questions found"}
 
-    ideal = ideal_answers.get(q_id, "")
-    score = get_score(user_ans, ideal)
+    available = [q for q in questions if q.text not in used_questions]
 
-    if score > 0.75:
-        feedback = "Strong answer"
-    elif score > 0.5:
-        feedback = "Average answer"
-    else:
-        feedback = "Weak answer"
+    if not available:
+        used_questions.clear()
+        available = questions
 
-    return {
-        "score": score,
-        "feedback": feedback
-    }
+    q = random.choice(available)
+    used_questions.add(q.text)
+
+    session.close()
+
+    return {"question": q.text}
 
 
+# =========================
+# ✅ SUBMIT ANSWER
+# =========================
 
 @app.post("/submit-ai")
 def submit_ai_answer(data: dict):
-    question = data["question"]
-    user_ans = data["answer"]
+    try:
+        user_question = data.get("question", "")
+        user_answer = data.get("answer", "")
 
-    score = get_score(user_ans, question)
+        if not user_question or not user_answer:
+            return {"score": 0, "feedback": "Invalid input"}
 
-    # GPT feedback
-    response = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role": "system", "content": "You are an interview evaluator."},
-        {
-            "role": "user",
-            "content": f"Question: {question}\nAnswer: {user_ans}\nGive feedback."
+        best_q, similarity = find_best_match(user_question)
+
+        if best_q is None:
+            return {
+                "score": 0,
+                "feedback": "No matching question in database"
+            }
+
+        answer_score = cosine_similarity(
+            [embed(user_answer)],
+            [best_q.embedding]
+        )[0][0]
+
+        feedback = get_feedback(user_answer)
+
+        return {
+            "score": float(answer_score),
+            "feedback": feedback,
+            "matched_question": best_q.text,
+            "match_confidence": similarity
         }
+
+    except Exception as e:
+        print("Error:", e)
+        return {
+            "score": 0,
+            "feedback": "Server error"
+        }
+
+@app.post("/add-question")
+def add_question(data: dict):
+    
+    role = data.get("role")
+
+    if role != "admin":
+        return {"message": "Unauthorized"}
+
+    try:
+        text = data.get("text", "")
+        topic = data.get("topic", "")
+
+        if not text or not topic:
+            return {"message": "Invalid input"}
+
+        session = SessionLocal()
+
+        # check duplicate
+        exists = session.query(Question).filter_by(text=text).first()
+        if exists:
+            session.close()
+            return {"message": "Question already exists"}
+
+        new_q = Question(
+            text=text,
+            topic=topic.lower(),
+            embedding=embed(text)
+        )
+
+        session.add(new_q)
+        session.commit()
+        session.close()
+
+        return {"message": "Question added successfully"}
+
+    except Exception as e:
+        print("Error:", e)
+        return {"message": "Server error"}
+    
+# =========================
+# ✅ GET ALL QUESTIONS
+# =========================
+@app.get("/questions")
+def get_all_questions():
+    session = SessionLocal()
+    questions = session.query(Question).all()
+    session.close()
+
+    return [
+        {"id": q.id, "text": q.text, "topic": q.topic}
+        for q in questions
     ]
+
+
+# =========================
+# ✅ DELETE QUESTION
+# =========================
+@app.delete("/delete-question/{qid}")
+def delete_question(qid: int, role: str):
+    if role != "admin":
+        return {"message": "Unauthorized"}
+
+    session = SessionLocal()
+    q = session.query(Question).filter_by(id=qid).first()
+
+    if not q:
+        session.close()
+        return {"message": "Not found"}
+
+    session.delete(q)
+    session.commit()
+    session.close()
+
+    return {"message": "Deleted successfully"}
+
+
+# =========================
+# ✅ UPDATE QUESTION
+# =========================
+@app.put("/update-question/{qid}")
+def update_question(qid: int, data: dict):
+    session = SessionLocal()
+    q = session.query(Question).filter_by(id=qid).first()
+
+    if not q:
+        session.close()
+        return {"message": "Not found"}
+
+    new_text = data.get("text", "")
+    new_topic = data.get("topic", "")
+
+    if new_text:
+        q.text = new_text
+        q.embedding = embed(new_text)  # update embedding
+
+    if new_topic:
+        q.topic = new_topic.lower()
+
+    session.commit()
+    session.close()
+
+    return {"message": "Updated successfully"}
+
+
+
+#STORE RESULT
+
+@app.post("/save-result")
+def save_result(data: dict):
+    session = SessionLocal()
+
+    username = data.get("username", "Anonymous")
+    score = float(data.get("score", 0))
+    total = data.get("total", 0)
+
+    new_result = InterviewResult(
+    username=username,
+    score=score,
+    total_questions=total
 )
 
-feedback = response.choices[0].message.content
+    session.add(new_result)
+    session.commit()
+    session.close()
 
-    feedback = response["choices"][0]["message"]["content"]
+    return {"message": "Result saved"}
 
-    return {
-        "score": score,
-        "feedback": feedback
+@app.get("/results")
+def get_results():
+    session = SessionLocal()
+    results = session.query(InterviewResult).all()
+    session.close()
+
+    return [
+    {
+        "id": r.id,
+        "username": r.username,
+        "score": r.score,
+        "total": r.total_questions
     }
+        for r in results
+    ]
 
+@app.delete("/delete-result/{id}")
+def delete_result(id: int, role: str):
+    if role != "admin":
+        return {"message": "Unauthorized"}
 
+    session = SessionLocal()
+    result = session.query(InterviewResult).filter_by(id=id).first()
+
+    if result:
+        session.delete(result)
+        session.commit()
+
+    session.close()
+    return {"message": "Deleted"}
+
+@app.delete("/clear-results")
+def clear_results(role: str):
+    if role != "admin":
+        return {"message": "Unauthorized"}
+
+    session = SessionLocal()
+    session.query(InterviewResult).delete()
+    session.commit()
+    session.close()
+
+    return {"message": "All results cleared"}
+
+@app.get("/leaderboard")
+def leaderboard():
+    session = SessionLocal()
+
+    results = session.query(InterviewResult)\
+        .order_by(InterviewResult.score.desc())\
+        .limit(5)\
+        .all()
+
+    session.close()
+
+    return [
+    {
+        "id": r.id,
+        "username": r.username,
+        "score": r.score,
+        "total": r.total_questions
+    }
+        for r in results
+    ]
    
 
     
