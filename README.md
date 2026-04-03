@@ -22,6 +22,7 @@ Feedback generation for each answer
 Overall performance score calculation
 Clean UI with dynamic updates
 Input validation (prevents empty submission)
+Admin Login Panel which alter several features for admin like clearing leaderboard,clearing history,Adding questions to any Topics
 
 
 3. ARCHITECTURE
