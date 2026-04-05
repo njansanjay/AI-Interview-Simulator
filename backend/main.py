@@ -1,4 +1,5 @@
 import random
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
@@ -8,6 +9,11 @@ from datetime import datetime, timedelta
 from fastapi import Header 
 from fastapi import Depends
 from db import SessionLocal, Question, InterviewResult
+from dotenv import load_dotenv
+from fastapi import HTTPException
+
+load_dotenv()
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 app = FastAPI()
 
@@ -16,12 +22,22 @@ users = {
     "admin": {"password": "admin123", "role": "admin"}
 }
 
-SECRET_KEY = "mysecretkey"
+# SECRET_KEY = "mysecretkey"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # ✅ load model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+# model = SentenceTransformer('all-MiniLM-L6-v2')
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+    return model
+
+def embed(text):
+    return get_model().encode(text)
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -30,13 +46,13 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # ✅ embedding function (YOU WERE MISSING THIS)
-def embed(text):
-    return model.encode(text)
+# def embed(text):
+#     return model.encode(text)
 
 # ✅ CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -129,7 +145,7 @@ def verify_token(authorization: str = Header(None)):
 # ✅ GENERATE QUESTION
 # =========================
 
-used_questions = set()
+# used_questions = set()
 
 @app.get("/generate-question/{topic}")
 def generate_question(topic: str):
@@ -141,14 +157,14 @@ def generate_question(topic: str):
         session.close()
         return {"question": "No questions found"}
 
-    available = [q for q in questions if q.text not in used_questions]
+    available = questions
 
     if not available:
         used_questions.clear()
         available = questions
 
     q = random.choice(available)
-    used_questions.add(q.text)
+    # used_questions.add(q.text)
 
     session.close()
 
@@ -200,7 +216,7 @@ def submit_ai_answer(data: dict):
 @app.post("/add-question")
 def add_question(data: dict, user=Depends(verify_token)):
     if not user or user["role"] != "admin":
-        return {"message": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
         text = data.get("text", "")
@@ -239,7 +255,7 @@ def add_question(data: dict, user=Depends(verify_token)):
 @app.get("/questions")
 def get_all_questions(user=Depends(verify_token)):
     if not user or user["role"] != "admin":
-        return {"message": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     session = SessionLocal()
     questions = session.query(Question).all()
@@ -268,7 +284,7 @@ def public_questions():
 @app.delete("/delete-question/{qid}")
 def delete_question(qid: int, user=Depends(verify_token)):
     if not user or user["role"] != "admin":
-        return {"message": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     session = SessionLocal()
     q = session.query(Question).filter_by(id=qid).first()
@@ -290,7 +306,7 @@ def delete_question(qid: int, user=Depends(verify_token)):
 @app.put("/update-question/{qid}")
 def update_question(qid: int, data: dict, user=Depends(verify_token)):
     if not user or user["role"] != "admin":
-        return {"message": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
     session = SessionLocal()
     q = session.query(Question).filter_by(id=qid).first()
 
@@ -356,7 +372,7 @@ def get_results():
 @app.delete("/delete-result/{id}")
 def delete_result(id: int, user=Depends(verify_token)):
     if not user or user["role"] != "admin":
-        return {"message": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     session = SessionLocal()
     result = session.query(InterviewResult).filter_by(id=id).first()
@@ -371,7 +387,7 @@ def delete_result(id: int, user=Depends(verify_token)):
 @app.delete("/clear-results")
 def clear_results(user=Depends(verify_token)):
     if not user or user["role"] != "admin":
-        return {"message": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     session = SessionLocal()
     session.query(InterviewResult).delete()
@@ -383,7 +399,7 @@ def clear_results(user=Depends(verify_token)):
 @app.delete("/delete-leaderboard/{id}")
 def delete_leaderboard(id: int, user=Depends(verify_token)):
     if not user or user["role"] != "admin":
-        return {"message": "Unauthorized"}
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     session = SessionLocal()
     result = session.query(InterviewResult).filter_by(id=id).first()
@@ -415,5 +431,4 @@ def leaderboard():
     }
         for r in results
     ]
-
     
