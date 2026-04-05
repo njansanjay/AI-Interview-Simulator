@@ -3,7 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from fastapi import Header 
+from fastapi import Depends
 from db import SessionLocal, Question, InterviewResult
 
 app = FastAPI()
@@ -13,8 +16,18 @@ users = {
     "admin": {"password": "admin123", "role": "admin"}
 }
 
+SECRET_KEY = "mysecretkey"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
 # ✅ load model
 model = SentenceTransformer('all-MiniLM-L6-v2')
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # ✅ embedding function (YOU WERE MISSING THIS)
 def embed(text):
@@ -89,18 +102,32 @@ def login(data: dict):
     if not user or user["password"] != password:
         return {"success": False}
 
+    token = create_access_token({
+        "username": username,
+        "role": user["role"]
+    })
+
     return {
         "success": True,
+        "token": token,
         "role": user["role"]
     }
 
+def verify_token(authorization: str = Header(None)):
+    if not authorization:
+        return None
+
+    try:
+        token = authorization.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except:
+        return None
 
 
 # =========================
 # ✅ GENERATE QUESTION
 # =========================
-
-used_questions = set()
 
 used_questions = set()
 
@@ -171,11 +198,8 @@ def submit_ai_answer(data: dict):
         }
 
 @app.post("/add-question")
-def add_question(data: dict):
-    
-    role = data.get("role")
-
-    if role != "admin":
+def add_question(data: dict, user=Depends(verify_token)):
+    if not user or user["role"] != "admin":
         return {"message": "Unauthorized"}
 
     try:
@@ -213,7 +237,21 @@ def add_question(data: dict):
 # ✅ GET ALL QUESTIONS
 # =========================
 @app.get("/questions")
-def get_all_questions():
+def get_all_questions(user=Depends(verify_token)):
+    if not user or user["role"] != "admin":
+        return {"message": "Unauthorized"}
+
+    session = SessionLocal()
+    questions = session.query(Question).all()
+    session.close()
+
+    return [
+        {"id": q.id, "text": q.text, "topic": q.topic}
+        for q in questions
+    ]
+
+@app.get("/public-questions")
+def public_questions():
     session = SessionLocal()
     questions = session.query(Question).all()
     session.close()
@@ -228,8 +266,8 @@ def get_all_questions():
 # ✅ DELETE QUESTION
 # =========================
 @app.delete("/delete-question/{qid}")
-def delete_question(qid: int, role: str):
-    if role != "admin":
+def delete_question(qid: int, user=Depends(verify_token)):
+    if not user or user["role"] != "admin":
         return {"message": "Unauthorized"}
 
     session = SessionLocal()
@@ -250,7 +288,9 @@ def delete_question(qid: int, role: str):
 # ✅ UPDATE QUESTION
 # =========================
 @app.put("/update-question/{qid}")
-def update_question(qid: int, data: dict):
+def update_question(qid: int, data: dict, user=Depends(verify_token)):
+    if not user or user["role"] != "admin":
+        return {"message": "Unauthorized"}
     session = SessionLocal()
     q = session.query(Question).filter_by(id=qid).first()
 
@@ -314,8 +354,8 @@ def get_results():
     ]
 
 @app.delete("/delete-result/{id}")
-def delete_result(id: int, role: str):
-    if role != "admin":
+def delete_result(id: int, user=Depends(verify_token)):
+    if not user or user["role"] != "admin":
         return {"message": "Unauthorized"}
 
     session = SessionLocal()
@@ -329,8 +369,8 @@ def delete_result(id: int, role: str):
     return {"message": "Deleted"}
 
 @app.delete("/clear-results")
-def clear_results(role: str):
-    if role != "admin":
+def clear_results(user=Depends(verify_token)):
+    if not user or user["role"] != "admin":
         return {"message": "Unauthorized"}
 
     session = SessionLocal()
@@ -339,6 +379,21 @@ def clear_results(role: str):
     session.close()
 
     return {"message": "All results cleared"}
+
+@app.delete("/delete-leaderboard/{id}")
+def delete_leaderboard(id: int, user=Depends(verify_token)):
+    if not user or user["role"] != "admin":
+        return {"message": "Unauthorized"}
+
+    session = SessionLocal()
+    result = session.query(InterviewResult).filter_by(id=id).first()
+
+    if result:
+        session.delete(result)
+        session.commit()
+
+    session.close()
+    return {"message": "Deleted from leaderboard"}
 
 @app.get("/leaderboard")
 def leaderboard():
@@ -360,6 +415,5 @@ def leaderboard():
     }
         for r in results
     ]
-   
 
     
