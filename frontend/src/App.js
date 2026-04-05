@@ -26,7 +26,33 @@ function App() {
   const [scores, setScores] = useState([]);
   const [history, setHistory] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [token, setToken] = useState("");
 
+useEffect(() => {
+  const savedToken = localStorage.getItem("token");
+  const savedRole = localStorage.getItem("role");
+
+  if (savedToken && savedRole) {
+    // Check if token is still valid (not expired)
+    try {
+      const payload = JSON.parse(atob(savedToken.split(".")[1]));
+      const isExpired = payload.exp * 1000 < Date.now();
+
+      if (!isExpired) {
+        setToken(savedToken);
+        setRole(savedRole);
+      } else {
+        // Token expired — clear everything
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+      }
+    } catch {
+      // Token is malformed — clear everything
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+    }
+  }
+}, []);
 
   // 🎤 Speech Recognition setup
   const SpeechRecognition =
@@ -79,14 +105,22 @@ function App() {
     })
   })
     .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        setRole(data.role);
-        setLoggedIn(true);
-      } else {
-        alert("Invalid login");
-      }
-    });
+.then(data => {
+  if (data.success) {
+    alert("Login successful");
+
+    // ✅ STORE TOKEN
+    setToken(data.token);
+    localStorage.setItem("token", data.token);
+
+    // ✅ STORE ROLE (THIS IS WHAT YOU MISSED)
+    setRole(data.role);
+    localStorage.setItem("role", data.role);
+
+  } else {
+    alert("Login failed");
+  }
+});
 };
 
   // generate question
@@ -105,12 +139,12 @@ function App() {
   fetch("http://127.0.0.1:8000/add-question", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
-    },
+  "Content-Type": "application/json",
+  "Authorization": "Bearer " + token
+},
     body: JSON.stringify({
-    text: newQuestion,
-    topic: newTopic,
-    role: role
+  text: newQuestion,
+  topic: newTopic
 })
   })
     .then(res => res.json())
@@ -158,20 +192,22 @@ if (mode === "interview") {
 
   // fetch all questions
 const fetchQuestions = () => {
-  fetch("http://127.0.0.1:8000/questions")
+  fetch("http://127.0.0.1:8000/public-questions")
     .then(res => res.json())
     .then(data => setAllQuestions(data));
 };
 
 // delete
 const deleteQuestion = (id) => {
-  fetch(`http://127.0.0.1:8000/delete-question/${id}?role=${role}`, {
-    method: "DELETE"
+  fetch(`http://127.0.0.1:8000/delete-question/${id}`, {
+    method: "DELETE",
+    headers: {
+  "Authorization": "Bearer " + localStorage.getItem("token")
+}
   })
     .then(res => res.json())
     .then(() => fetchQuestions());
 };
-
 // start editing
 const startEdit = (q) => {
   setEditingId(q.id);
@@ -183,7 +219,10 @@ const startEdit = (q) => {
 const updateQuestion = () => {
   fetch(`http://127.0.0.1:8000/update-question/${editingId}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+  "Content-Type": "application/json",
+  "Authorization": "Bearer " + token
+},
     body: JSON.stringify({
       text: editText,
       topic: editTopic
@@ -197,10 +236,17 @@ const updateQuestion = () => {
 };
 
 const startInterview = () => {
-  fetch("http://127.0.0.1:8000/questions")
+  fetch("http://127.0.0.1:8000/public-questions")
     .then(res => res.json())
-    .then(data => {
-      const shuffled = data.sort(() => 0.5 - Math.random()).slice(0, 10);
+   .then(data => {
+  console.log("DATA:", data);
+    
+  if (!Array.isArray(data)) {
+    alert("Not authorized or no questions");
+    return;
+  }
+
+  const shuffled = data.sort(() => 0.5 - Math.random()).slice(0, 10);
 
       setQueue(shuffled);
       setCurrentIndex(0);
@@ -279,24 +325,134 @@ const fetchHistory = () => {
 
 const deleteResult = (id) => {
   fetch(`http://127.0.0.1:8000/delete-result/${id}`, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: {
+  "Authorization": "Bearer " + localStorage.getItem("token")
+}
   })
     .then(res => res.json())
-    .then(() => {
-      fetchHistory();   // ✅ correct function
-      loadLeaderboard(); // ✅ also refresh leaderboard
-    })
+.then(data => {
+  if (data.message === "Unauthorized") {
+    alert("Admin login required");
+    return;
+  }
+  fetchHistory();
+  loadLeaderboard();
+})
     .catch(() => alert("Delete failed"));
 };
 
 const clearResults = () => {
-  fetch(`http://127.0.0.1:8000/clear-results?role=${role}`, {
-    method: "DELETE"
+  fetch(`http://127.0.0.1:8000/clear-results`, {
+  method: "DELETE",
+  headers: {
+  "Authorization": "Bearer " + localStorage.getItem("token")
+}
+})
+    .then(res => res.json())
+  .then(data => {
+    if (data.message === "Unauthorized") {
+      alert("Admin login required");
+      return;
+    }
+    setHistory([]);  // only clear if success
   })
-    .then(() => {
-      setHistory([]);
-    })
     .catch(() => alert("Clear failed"));
+};
+
+const deleteHistory = (id) => {
+  fetch(`http://127.0.0.1:8000/delete-result/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer " + localStorage.getItem("token")
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("DELETE HISTORY:", data);
+
+    if (data.message === "Unauthorized") {
+      alert("Admin login required");
+      return;
+    }
+
+    fetchHistory();
+    loadLeaderboard();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Delete failed");
+  });
+};
+
+const clearLeaderboard = () => {
+  fetch("http://127.0.0.1:8000/clear-results", {
+    method: "DELETE",
+    headers: {
+  "Authorization": "Bearer " + localStorage.getItem("token")
+}
+  })
+    .then(res => res.json())
+.then(data => {
+  if (data.message === "Unauthorized") {
+    alert("Admin login required");
+    return;
+  }
+  loadLeaderboard();
+})
+    .catch(() => alert("Clear failed"));
+};
+
+const clearHistory = () => {
+  fetch("http://127.0.0.1:8000/clear-results", {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer " + localStorage.getItem("token")
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.message === "Unauthorized") {
+      alert("Admin login required");
+      return;
+    }
+
+    fetchHistory();
+  });
+};
+
+const deleteLeaderboard = (id) => {
+  fetch(`http://127.0.0.1:8000/delete-leaderboard/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer " + localStorage.getItem("token")
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("DELETE LEADERBOARD:", data);
+
+    if (data.message === "Unauthorized") {
+      alert("Admin login required");
+      return;
+    }
+
+    loadLeaderboard();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Delete failed");
+  });
+};
+
+const logout = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+
+  setToken(null);
+  setRole(null);
+
+  alert("Logged out");
 };
 
 const loadLeaderboard = () => {
@@ -372,9 +528,12 @@ return (
 {role === "admin" && (
   <button
     onClick={() => {
-      setRole(null);
-      alert("Logged out");
-    }}
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  setRole(null);
+  setToken("");
+  alert("Logged out");
+}}
     style={{ marginLeft: "10px" }}
   >
     Logout
@@ -501,9 +660,9 @@ return (
 
 <h2>🏆 Leaderboard</h2>
 {role === "admin" && (
-  <button onClick={clearResults}>
-    Clear Leaderboard
-  </button>
+  <button onClick={clearLeaderboard}>
+  Clear Leaderboard
+</button>
 )}
 <button onClick={loadLeaderboard}>Load Leaderboard</button>
 
@@ -527,6 +686,23 @@ return (
 
   </div>
 ))} */}
+{leaderboard.length > 0 && (
+  <ul>
+    {leaderboard.map((item) => (
+  <li key={item.id}>
+    #{item.id} — {item.username} : {item.score} / {item.total}
+
+    {role === "admin" && (
+  <button
+    style={{ marginLeft: "10px" }}
+onClick={() => deleteLeaderboard(item.id)}  >
+    Delete
+  </button>
+)}
+  </li>
+))}
+  </ul>
+)}
 
 <hr />
       {role === "admin" && (
@@ -587,24 +763,7 @@ return (
     
     
 
-{leaderboard.length > 0 && (
-  <ul>
-    {leaderboard.map((item) => (
-  <li key={item.id}>
-    #{item.id} — {item.username} : {item.score} / {item.total}
 
-    {role === "admin" && (
-  <button
-    style={{ marginLeft: "10px" }}
-    onClick={() => deleteResult(item.id)}
-  >
-    Delete
-  </button>
-)}
-  </li>
-))}
-  </ul>
-)}
   </div>
 
 );
