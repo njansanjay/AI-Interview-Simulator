@@ -1,4 +1,5 @@
 import { useState,useEffect } from "react";
+import { API_URL } from "./config";
 
 function App() {
   const [topic, setTopic] = useState("");
@@ -125,7 +126,7 @@ useEffect(() => {
 
   // generate question
   const generateQuestion = () => {
-    fetch(`http://127.0.0.1:8000/generate-question/${topic}`)
+    fetch(`${API_URL}/generate-question/${topic}`)
       .then((res) => res.json())
       .then((data) => {
         setQuestion(data.question);
@@ -136,7 +137,7 @@ useEffect(() => {
   };
 
   const addQuestion = () => {
-  fetch("http://127.0.0.1:8000/add-question", {
+  fetch(`${API_URL}/add-question`, {
     method: "POST",
     headers: {
   "Content-Type": "application/json",
@@ -149,6 +150,11 @@ useEffect(() => {
   })
     .then(res => res.json())
     .then(data => {
+      if (data.detail === "Unauthorized") {
+  alert("Session expired. Login again.");
+  logout();
+  return;
+}
       setAdminMsg(data.message);
       setNewQuestion("");
     })
@@ -157,7 +163,7 @@ useEffect(() => {
 
   // submit answer
   const submitAnswer = () => {
-    fetch("http://127.0.0.1:8000/submit-ai", {
+    fetch(`${API_URL}/submit-ai`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -192,21 +198,29 @@ if (mode === "interview") {
 
   // fetch all questions
 const fetchQuestions = () => {
-  fetch("http://127.0.0.1:8000/public-questions")
+  fetch(`${API_URL}/public-questions`)
     .then(res => res.json())
     .then(data => setAllQuestions(data));
 };
 
 // delete
 const deleteQuestion = (id) => {
-  fetch(`http://127.0.0.1:8000/delete-question/${id}`, {
+  fetch(`${API_URL}/delete-question/${id}`, {
     method: "DELETE",
     headers: {
-  "Authorization": "Bearer " + localStorage.getItem("token")
-}
+      "Authorization": "Bearer " + token
+    }
   })
     .then(res => res.json())
-    .then(() => fetchQuestions());
+    .then(data => {
+      if (data.detail === "Unauthorized") {
+        alert("Session expired. Login again.");
+        logout();
+        return;
+      }
+
+      fetchQuestions();
+    });
 };
 // start editing
 const startEdit = (q) => {
@@ -217,26 +231,32 @@ const startEdit = (q) => {
 
 // update
 const updateQuestion = () => {
-  fetch(`http://127.0.0.1:8000/update-question/${editingId}`, {
+  fetch(`${API_URL}/update-question/${editingId}`, {
     method: "PUT",
     headers: {
-  "Content-Type": "application/json",
-  "Authorization": "Bearer " + token
-},
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
     body: JSON.stringify({
       text: editText,
       topic: editTopic
     })
   })
     .then(res => res.json())
-    .then(() => {
+    .then(data => {
+      if (data.detail === "Unauthorized") {
+        alert("Session expired. Login again.");
+        logout();
+        return;
+      }
+
       setEditingId(null);
       fetchQuestions();
     });
 };
 
 const startInterview = () => {
-  fetch("http://127.0.0.1:8000/public-questions")
+  fetch(`${API_URL}/public-questions`)
     .then(res => res.json())
    .then(data => {
   console.log("DATA:", data);
@@ -318,7 +338,7 @@ alert("Interview Finished! Avg Score: " + avg.toFixed(2));
 // };
 
 const fetchHistory = () => {
-  fetch("http://127.0.0.1:8000/results")
+  fetch(`${API_URL}/results`)
     .then(res => res.json())
     .then(data => setHistory(data));
 };
@@ -327,11 +347,16 @@ const deleteResult = (id) => {
   fetch(`http://127.0.0.1:8000/delete-result/${id}`, {
     method: "DELETE",
     headers: {
-  "Authorization": "Bearer " + localStorage.getItem("token")
+  "Authorization": "Bearer " + token
 }
   })
     .then(res => res.json())
 .then(data => {
+  if (data.detail === "Unauthorized") {
+  alert("Session expired. Login again.");
+  logout();
+  return;
+}
   if (data.message === "Unauthorized") {
     alert("Admin login required");
     return;
@@ -339,18 +364,26 @@ const deleteResult = (id) => {
   fetchHistory();
   loadLeaderboard();
 })
-    .catch(() => alert("Delete failed"));
+    .catch((err) => {
+  console.error(err);
+  alert("Delete failed");
+});
 };
 
 const clearResults = () => {
   fetch(`http://127.0.0.1:8000/clear-results`, {
   method: "DELETE",
   headers: {
-  "Authorization": "Bearer " + localStorage.getItem("token")
+  "Authorization": "Bearer " + token
 }
 })
     .then(res => res.json())
   .then(data => {
+    if (data.detail === "Unauthorized") {
+  alert("Session expired. Login again.");
+  logout();
+  return;
+}
     if (data.message === "Unauthorized") {
       alert("Admin login required");
       return;
@@ -360,36 +393,36 @@ const clearResults = () => {
     .catch(() => alert("Clear failed"));
 };
 
-const deleteHistory = (id) => {
-  fetch(`http://127.0.0.1:8000/delete-result/${id}`, {
-    method: "DELETE",
-    headers: {
-      "Authorization": "Bearer " + localStorage.getItem("token")
-    }
-  })
-  .then(res => res.json())
-  .then(data => {
-    console.log("DELETE HISTORY:", data);
+// const deleteHistory = (id) => {
+//   fetch(`http://127.0.0.1:8000/delete-result/${id}`, {
+//     method: "DELETE",
+//     headers: {
+//       "Authorization": "Bearer " + token
+//     }
+//   })
+//   .then(res => res.json())
+//   .then(data => {
+//     console.log("DELETE HISTORY:", data);
 
-    if (data.message === "Unauthorized") {
-      alert("Admin login required");
-      return;
-    }
+//     if (data.message === "Unauthorized") {
+//       alert("Admin login required");
+//       return;
+//     }
 
-    fetchHistory();
-    loadLeaderboard();
-  })
-  .catch(err => {
-    console.error(err);
-    alert("Delete failed");
-  });
-};
+//     fetchHistory();
+//     loadLeaderboard();
+//   })
+//   .catch(err => {
+//     console.error(err);
+//     alert("Delete failed");
+//   });
+// };
 
 const clearLeaderboard = () => {
   fetch("http://127.0.0.1:8000/clear-results", {
     method: "DELETE",
     headers: {
-  "Authorization": "Bearer " + localStorage.getItem("token")
+  "Authorization": "Bearer " + token
 }
   })
     .then(res => res.json())
@@ -407,7 +440,7 @@ const clearHistory = () => {
   fetch("http://127.0.0.1:8000/clear-results", {
     method: "DELETE",
     headers: {
-      "Authorization": "Bearer " + localStorage.getItem("token")
+      "Authorization": "Bearer " + token
     }
   })
   .then(res => res.json())
@@ -425,7 +458,7 @@ const deleteLeaderboard = (id) => {
   fetch(`http://127.0.0.1:8000/delete-leaderboard/${id}`, {
     method: "DELETE",
     headers: {
-      "Authorization": "Bearer " + localStorage.getItem("token")
+      "Authorization": "Bearer " + token
     }
   })
   .then(res => res.json())
