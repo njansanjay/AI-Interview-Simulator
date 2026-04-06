@@ -11,11 +11,20 @@ from fastapi import Depends
 from db import SessionLocal, Question, InterviewResult
 from dotenv import load_dotenv
 from fastapi import HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # allow React
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 users = {
     "user": {"password": "123", "role": "user"},
@@ -52,7 +61,7 @@ def create_access_token(data: dict):
 # ✅ CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,31 +112,55 @@ def get_feedback(answer):
 
     return " ".join(feedback)
 
+student_users = {}
+
+@app.post("/signup")
+def signup(data: dict):
+    email = data.get("email")
+    password = data.get("password")
+
+    if email in student_users:
+        return {"success": False, "message": "User exists"}
+
+    student_users[email] = password
+
+    return {"success": True}
 
 @app.get("/")
 def home():
     return {"message": "API working"}
 
 @app.post("/login")
+@app.post("/login")
 def login(data: dict):
     username = data.get("username")
     password = data.get("password")
 
-    user = users.get(username)
+    # ✅ admin login
+    if username in users and users[username]["password"] == password:
+        token = create_access_token({
+            "username": username,
+            "role": users[username]["role"]
+        })
+        return {
+            "success": True,
+            "token": token,
+            "role": users[username]["role"]
+        }
 
-    if not user or user["password"] != password:
-        return {"success": False}
+    # ✅ student login
+    if username in student_users and student_users[username] == password:
+        token = create_access_token({
+            "username": username,
+            "role": "student"
+        })
+        return {
+            "success": True,
+            "token": token,
+            "role": "student"
+        }
 
-    token = create_access_token({
-        "username": username,
-        "role": user["role"]
-    })
-
-    return {
-        "success": True,
-        "token": token,
-        "role": user["role"]
-    }
+    return {"success": False}
 
 def verify_token(authorization: str = Header(None)):
     if not authorization:
