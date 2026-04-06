@@ -28,31 +28,12 @@ function App() {
   const [history, setHistory] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [token, setToken] = useState("");
+  const [loginMode, setLoginMode] = useState("none"); 
 
 useEffect(() => {
-  const savedToken = localStorage.getItem("token");
-  const savedRole = localStorage.getItem("role");
-
-  if (savedToken && savedRole) {
-    // Check if token is still valid (not expired)
-    try {
-      const payload = JSON.parse(atob(savedToken.split(".")[1]));
-      const isExpired = payload.exp * 1000 < Date.now();
-
-      if (!isExpired) {
-        setToken(savedToken);
-        setRole(savedRole);
-      } else {
-        // Token expired — clear everything
-        localStorage.removeItem("token");
-        localStorage.removeItem("role");
-      }
-    } catch {
-      // Token is malformed — clear everything
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
-    }
-  }
+  // ❌ disable auto login
+  setToken("");
+  setRole(null);
 }, []);
 
   // 🎤 Speech Recognition setup
@@ -538,11 +519,88 @@ useEffect(() => {
 //   );
 // }
 
+if (!token) {
+  return (
+    <div style={{ padding: "20px" }}>
+      <h1>Login</h1>
+
+      <button onClick={() => setLoginMode("student")}>
+        Student Login
+      </button>
+        <br /><br />
+      <button onClick={() => setLoginMode("admin")}>
+        Admin Login
+      </button>
+
+      <br /><br />
+
+      {loginMode === "student" && (
+        <>
+          <input
+            placeholder="Email"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <br />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button onClick={handleLogin}>Login</button>
+
+          <button
+            onClick={() => {
+              fetch("http://127.0.0.1:8000/signup", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  email: username,
+                  password: password
+                })
+              })
+                .then(res => res.json())
+                .then(data => {
+                  alert(data.success ? "Signup success" : "User exists");
+                });
+            }}
+          >
+            Signup
+          </button>
+        </>
+      )}
+
+      {loginMode === "admin" && (
+        <>
+          <input
+            placeholder="Admin username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          <input
+            type="password"
+            placeholder="Admin password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button onClick={handleLogin}>Login as Admin</button>
+        </>
+      )}
+    </div>
+  );
+}
+
 return (
   <div style={{ padding: "20px", maxWidth: "800px", margin: "auto" }}>
     
     <h1>🎯 Interview Simulator</h1>
-<h2>🔐 Admin Login</h2>
+{/* <h2>🔐 Admin Login</h2>
 
 <input
   placeholder="Admin username"
@@ -573,7 +631,7 @@ return (
   </button>
 )}
 <hr />
-<br></br>
+<br></br> */}
 <h2>🧑‍🎓Student </h2>
     <input
   placeholder="Enter your name"
