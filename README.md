@@ -22,7 +22,7 @@ Feedback generation for each answer
 Overall performance score calculation
 Clean UI with dynamic updates
 Input validation (prevents empty submission)
-Login system for Student and Admin seperately
+Login system for Student and Admin seperately with Logout option to went back to Login Page
 Admin Login Panel which alter several features for admin like clearing leaderboard,clearing history,Adding questions to any Topics
 
 
