@@ -1,5 +1,6 @@
 import { useState,useEffect } from "react";
 import { API_URL } from "./config";
+import "./App.css";
 
 function App() {
   const [topic, setTopic] = useState("");
@@ -35,6 +36,8 @@ useEffect(() => {
   setToken("");
   setRole(null);
 }, []);
+
+
 
   // 🎤 Speech Recognition setup
   const SpeechRecognition =
@@ -210,6 +213,11 @@ const startEdit = (q) => {
   setEditTopic(q.topic);
 };
 
+const logout = () => {
+  localStorage.removeItem("token");
+  setToken(null);
+};
+
 // update
 const updateQuestion = () => {
   fetch(`${API_URL}/update-question/${editingId}`, {
@@ -262,6 +270,8 @@ const startInterview = () => {
       setLocked(false);
     });
 };
+
+
 
 const handleAutoNext = () => {
   const updatedScores = [...scores, result ? result.score : 0];
@@ -317,6 +327,38 @@ alert("Interview Finished! Avg Score: " + avg.toFixed(2));
 //   setAnswer("");
 //   setResult(null);
 // };
+
+const endInterview = () => {
+  const finalScores = [...scores];
+
+  // include current question score if exists
+  if (result && result.score !== undefined) {
+    finalScores.push(result.score);
+  }
+
+  if (finalScores.length === 0) {
+    alert("No answers submitted");
+    return;
+  }
+
+  const avg =
+    finalScores.reduce((a, b) => a + b, 0) / finalScores.length;
+
+  // save result
+  fetch("http://127.0.0.1:8000/save-result", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: name.trim(),
+      score: avg.toFixed(2),
+      total: finalScores.length
+    })
+  });
+
+  setMode("normal");
+
+  alert("Interview Ended! Avg Score: " + avg.toFixed(2));
+};
 
 const fetchHistory = () => {
   fetch(`${API_URL}/results`)
@@ -459,15 +501,7 @@ const deleteLeaderboard = (id) => {
   });
 };
 
-const logout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("role");
 
-  setToken(null);
-  setRole(null);
-
-  alert("Logged out");
-};
 
 const loadLeaderboard = () => {
   fetch("http://127.0.0.1:8000/leaderboard")
@@ -521,7 +555,8 @@ useEffect(() => {
 
 if (!token) {
   return (
-    <div style={{ padding: "20px" }}>
+    <div className="login-container">
+  <div className="login-box">
       <h1>Login</h1>
 
       <button onClick={() => setLoginMode("student")}>
@@ -592,14 +627,23 @@ if (!token) {
           <button onClick={handleLogin}>Login as Admin</button>
         </>
       )}
-    </div>
-  );
+      </div>
+</div>
+);
 }
 
 return (
-  <div style={{ padding: "20px", maxWidth: "800px", margin: "auto" }}>
+  <div className="container">
     
-    <h1>🎯 Interview Simulator</h1>
+    <div className="header">
+  <h1>🎯 Interview Simulator</h1>
+
+  {token && (
+    <button className="logout-btn" onClick={logout}>
+      Logout
+    </button>
+  )}
+</div>
 {/* <h2>🔐 Admin Login</h2>
 
 <input
@@ -632,46 +676,32 @@ return (
 )}
 <hr />
 <br></br> */}
-<h2>🧑‍🎓Student </h2>
-    <input
-  placeholder="Enter your name"
-  value={name}
-  onChange={(e) => setName(e.target.value)}
-/>
-  
+{/* 🧑‍🎓 Student Interview */}
+<div className="card">
+  <h2>🧑‍🎓 Student Interview</h2>
 
-    {/* Generate */}
-    <div style={{ marginBottom: "20px" }}>
-      <input
-        placeholder="Enter topic (os, dbms, oops)"
-        value={topic}
-        onChange={(e) => setTopic(e.target.value)}
-      />
-      <button onClick={generateQuestion} style={{ marginLeft: "10px" }}>
-        Generate
-      </button>
-<button
-  onClick={() => {
-    if (!name.trim()) {
-      alert("Enter name first");
-      return;
-    }
-    startInterview();
-  }}
->
-  Start Interview (10 Q)
-</button>    </div>
+  <input
+    placeholder="Enter your name"
+    value={name}
+    onChange={(e) => setName(e.target.value)}
+  />
 
-    {/* Question */}
+  <button
+    onClick={() => {
+      if (!name.trim()) {
+        alert("Enter name first");
+        return;
+      }
+      startInterview();
+    }}
+  >
+    Start Interview (10 Q)
+  </button>
+</div>
+
+{/* Question */}
     {question && (
-      <div
-        style={{
-          border: "1px solid #ccc",
-          padding: "15px",
-          borderRadius: "10px",
-          marginBottom: "20px"
-        }}
-      >
+      <div className="card question-box">
         <h2>{question}</h2>
 
         {mode === "interview" && (
@@ -686,8 +716,6 @@ return (
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           rows={4}
-          style={{ width: "100%" }}
-          
           disabled={locked}
         />
 
@@ -697,29 +725,53 @@ return (
        <button
   onClick={submitAnswer}
   disabled={locked}   // ✅ ADD THIS
-  style={{ marginLeft: "10px" }}
+  
 >
   Submit
 </button>
+
+{mode === "interview" && (
+  <button
+  onClick={endInterview}
+  className="danger"
+>
+  End Interview
+</button>
+)}
+
       </div>
     )}
 
+    
+
+
+{/* ⚡ Quick Practice */}
+<div className="card">
+  <h2>⚡ Quick Practice</h2>
+
+  <input
+    placeholder="Enter topic (os, dbms, oops)"
+    value={topic}
+    onChange={(e) => setTopic(e.target.value)}
+  />
+
+  <button onClick={generateQuestion}>
+    Generate Question
+  </button>
+</div>
+
+    
+
     {/* Result */}
     {result && (
-      <div style={{ marginBottom: "20px" }}>
+      <div className="result-box">
         <h3>Score: {result.score.toFixed(2)}</h3>
         <p>Feedback: {result.feedback}</p>
       </div>
     )}
 
     {/* Admin Panel */}
-    <div
-      style={{
-        borderTop: "2px solid black",
-        paddingTop: "20px",
-        marginTop: "30px"
-      }}
-    >
+    <div className="card">
 
       <h2>📊 Interview History</h2>
     {role === "admin" && (
