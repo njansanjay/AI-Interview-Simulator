@@ -1,5 +1,7 @@
 import random
 import os
+from google.oauth2 import id_token
+from google.auth.transport import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
@@ -8,23 +10,20 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi import Header 
 from fastapi import Depends
-from db import SessionLocal, Question, InterviewResult
+from db import SessionLocal, Question, InterviewResult, User
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from passlib.hash import bcrypt
+from utils import embed
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],   # allow React
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 users = {
     "user": {"password": "123", "role": "user"},
@@ -45,8 +44,7 @@ def get_model():
         model = SentenceTransformer('all-MiniLM-L6-v2')
     return model
 
-def embed(text):
-    return get_model().encode(text)
+
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -112,17 +110,32 @@ def get_feedback(answer):
 
     return " ".join(feedback)
 
-student_users = {}
 
 @app.post("/signup")
 def signup(data: dict):
+    session = SessionLocal()
+
     email = data.get("email")
     password = data.get("password")
 
-    if email in student_users:
+    existing = session.query(User).filter_by(email=email).first()
+
+    if existing:
+        session.close()
         return {"success": False, "message": "User exists"}
 
-    student_users[email] = password
+    password = password[:72]   # truncate to avoid crash
+    hashed = bcrypt.hash(password)
+
+    new_user = User(
+    email=email,
+    password=hashed,
+    role="student"
+)
+
+    session.add(new_user)
+    session.commit()
+    session.close()
 
     return {"success": True}
 
@@ -130,7 +143,6 @@ def signup(data: dict):
 def home():
     return {"message": "API working"}
 
-@app.post("/login")
 @app.post("/login")
 def login(data: dict):
     username = data.get("username")
@@ -148,19 +160,27 @@ def login(data: dict):
             "role": users[username]["role"]
         }
 
-    # ✅ student login
-    if username in student_users and student_users[username] == password:
+    # ✅ student login (DB)
+    session = SessionLocal()
+
+    user = session.query(User).filter_by(email=username).first()
+
+    if user and bcrypt.verify(password[:72], user.password):
         token = create_access_token({
-            "username": username,
-            "role": "student"
+            "username": user.email,
+            "role": user.role
         })
+        session.close()
         return {
             "success": True,
             "token": token,
-            "role": "student"
+            "role": user.role
         }
 
+    session.close()
     return {"success": False}
+    
+
 
 def verify_token(authorization: str = Header(None)):
     if not authorization:
@@ -177,6 +197,48 @@ def verify_token(authorization: str = Header(None)):
 # =========================
 # ✅ GENERATE QUESTION
 # =========================
+
+@app.post("/google-login")
+def google_login(data: dict):
+    token = data.get("token")
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+
+        email = idinfo["email"]
+        name = idinfo.get("name", "")
+
+        # ✅ ADD THIS BLOCK HERE
+        session = SessionLocal()
+
+        user = session.query(User).filter_by(email=email).first()
+
+        if not user:
+            user = User(email=email, password="", role="student")
+            session.add(user)
+            session.commit()
+
+        session.close()
+        # ✅ END OF BLOCK
+
+        jwt_token = create_access_token({
+            "username": email,
+            "role": "student"
+        })
+
+        return {
+            "success": True,
+            "token": jwt_token,
+            "name": name
+        }
+
+    except Exception as e:
+        print(e)
+        return {"success": False}
 
 # used_questions = set()
 
@@ -464,4 +526,11 @@ def leaderboard():
     }
         for r in results
     ]
+@app.get("/users")
+def get_users():
+    session = SessionLocal()
+    users = session.query(User).all()
+    session.close()
+
+    return [{"email": u.email, "role": u.role} for u in users]
     
