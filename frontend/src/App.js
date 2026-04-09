@@ -10,6 +10,7 @@ function App() {
   const [role, setRole] = useState(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [question, setQuestion] = useState("");
+  const [quickQuestion, setQuickQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState(null);
   const [listening, setListening] = useState(false);
@@ -113,9 +114,11 @@ useEffect(() => {
     fetch(`${API_URL}/generate-question/${topic}`)
       .then((res) => res.json())
       .then((data) => {
-        setQuestion(data.question);
+        setQuickQuestion(data.question);
         setResult(null);
         setAnswer("");
+        setQuestion(""); 
+        setMode("normal");
       })
       .catch(() => alert("Backend error"));
   };
@@ -249,7 +252,7 @@ const startInterview = () => {
     .then(res => res.json())
    .then(data => {
   console.log("DATA:", data);
-    
+    setQuickQuestion(""); 
   if (!Array.isArray(data)) {
     alert("Not authorized or no questions");
     return;
@@ -699,48 +702,29 @@ return (
   </button>
 </div>
 
-{/* Question */}
-    {question && (
-      <div className="card question-box">
-        <h2>{question}</h2>
+{mode === "interview" && question && (
+  <div className="card question-box">
+    <h2>{question}</h2>
 
-        {mode === "interview" && (
-  <>
     <p>Question {currentIndex + 1} / 10</p>
     <p>⏳ Time Left: {timeLeft}s</p>
-  </>
+
+    <textarea
+      placeholder="Type your answer..."
+      value={answer}
+      onChange={(e) => setAnswer(e.target.value)}
+      rows={4}
+      disabled={locked}
+    />
+
+    <button onClick={startListening}>🎤 Speak</button>
+    <button onClick={submitAnswer} disabled={locked}>Submit</button>
+
+    <button onClick={endInterview} className="danger">
+      End Interview
+    </button>
+  </div>
 )}
-
-        <textarea
-          placeholder="Type your answer..."
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          rows={4}
-          disabled={locked}
-        />
-
-        <br />
-
-        <button onClick={startListening}>🎤 Speak</button>
-       <button
-  onClick={submitAnswer}
-  disabled={locked}   // ✅ ADD THIS
-  
->
-  Submit
-</button>
-
-{mode === "interview" && (
-  <button
-  onClick={endInterview}
-  className="danger"
->
-  End Interview
-</button>
-)}
-
-      </div>
-    )}
 
     
 
@@ -759,6 +743,22 @@ return (
     Generate Question
   </button>
 </div>
+
+{quickQuestion && (
+  <div className="card question-box">
+    <h2>{quickQuestion}</h2>
+
+    <textarea
+      placeholder="Type your answer..."
+      value={answer}
+      onChange={(e) => setAnswer(e.target.value)}
+      rows={4}
+    />
+
+    <button onClick={startListening}>🎤 Speak</button>
+    <button onClick={submitAnswer}>Submit</button>
+  </div>
+)}
 
     
 
