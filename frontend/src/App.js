@@ -33,9 +33,37 @@ function App() {
   const [loginMode, setLoginMode] = useState("none"); 
 
 useEffect(() => {
-  // ❌ disable auto login
-  setToken("");
-  setRole(null);
+  const savedToken = localStorage.getItem("token");
+  const savedRole = localStorage.getItem("role");
+
+  if (savedToken) {
+    setToken(savedToken);
+    setRole(savedRole);
+  }
+}, []);
+
+useEffect(() => {
+  localStorage.setItem("mode", mode);
+  localStorage.setItem("question", question);
+  localStorage.setItem("currentIndex", currentIndex);
+  localStorage.setItem("queue", JSON.stringify(queue));
+  localStorage.setItem("scores", JSON.stringify(scores));
+  localStorage.setItem("timeLeft", timeLeft);
+  localStorage.setItem("name", name);
+}, [mode, question, currentIndex, queue, scores, timeLeft, name]);
+
+useEffect(() => {
+  const savedMode = localStorage.getItem("mode");
+
+  if (savedMode === "interview") {
+    setMode("interview");
+    setQuestion(localStorage.getItem("question") || "");
+    setCurrentIndex(parseInt(localStorage.getItem("currentIndex")) || 0);
+    setQueue(JSON.parse(localStorage.getItem("queue")) || []);
+    setScores(JSON.parse(localStorage.getItem("scores")) || []);
+    setTimeLeft(parseInt(localStorage.getItem("timeLeft")) || 30);
+    setName(localStorage.getItem("name") || "");
+  }
 }, []);
 
 
@@ -80,7 +108,13 @@ useEffect(() => {
   };
 
   const handleLogin = () => {
-  fetch("http://127.0.0.1:8000/login", {
+  if (loginMode === "student") {
+  if (!username.includes("@")) {
+    alert("Enter valid email");
+    return;
+  }
+}
+    fetch("http://127.0.0.1:8000/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -103,7 +137,11 @@ useEffect(() => {
     setRole(data.role);
     localStorage.setItem("role", data.role);
 
-  } else {
+  } if (data.role === "student") {
+  const extractedName = username.split("@")[0];
+  setName(extractedName);
+}
+else {
     alert("Login failed");
   }
 });
