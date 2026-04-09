@@ -1,5 +1,5 @@
 from db import SessionLocal, Question
-from main import embed
+from utils import embed
 
 session = SessionLocal()
 
