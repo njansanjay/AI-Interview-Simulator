@@ -31,6 +31,7 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [token, setToken] = useState("");
   const [loginMode, setLoginMode] = useState("none"); 
+  const [invalidTopic, setInvalidTopic] = useState(false);
 
 useEffect(() => {
   const savedToken = localStorage.getItem("token");
@@ -148,19 +149,29 @@ else {
 };
 
   // generate question
-  const generateQuestion = () => {
-    fetch(`${API_URL}/generate-question/${topic}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setQuickQuestion(data.question);
-        setResult(null);
-        setAnswer("");
-        setQuestion(""); 
-        setMode("normal");
-      })
-      .catch(() => alert("Backend error"));
-  };
+const generateQuestion = async () => {
+  setMode("quick");
+  setInvalidTopic(false); // ✅ ADD THIS AT TOP
 
+  try {
+    const res = await fetch(`${API_URL}/generate-question/${topic.toLowerCase()}`);
+
+    const data = await res.json();
+
+    if (!data.question || data.question === "No questions found") {
+      setQuickQuestion("");
+      setAnswer("");
+      setInvalidTopic(true);
+      setResult(null);
+      return;
+    }
+
+    setQuickQuestion(data.question);
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
+  }
+};
   const addQuestion = () => {
   fetch(`${API_URL}/add-question`, {
     method: "POST",
@@ -302,7 +313,7 @@ const startInterview = () => {
       setCurrentIndex(0);
       setScores([]);
       setMode("interview");
-
+      setResult(null);
       setQuestion(shuffled[0].text);
       setAnswer("");
       setResult(null);
@@ -312,6 +323,17 @@ const startInterview = () => {
     });
 };
 
+const nextQuickQuestion = async () => {
+  setAnswer("");
+
+  const res = await fetch(`${API_URL}/generate-question/${topic.toLowerCase()}`);
+
+  const data = await res.json();
+
+  if (data.question) {
+    setQuickQuestion(data.question);
+  }
+};
 
 
 const handleAutoNext = () => {
@@ -603,8 +625,10 @@ if (!token) {
       <button onClick={() => setLoginMode("student")}>
         Student Login
       </button>
-        <br /><br />
-      <button onClick={() => setLoginMode("admin")}>
+        
+      <button 
+      className="secondary"
+      onClick={() => setLoginMode("admin")}>
         Admin Login
       </button>
 
@@ -742,6 +766,7 @@ return (
 
 {mode === "interview" && question && (
   <div className="card question-box">
+    
     <h2>{question}</h2>
 
     <p>Question {currentIndex + 1} / 10</p>
@@ -761,6 +786,12 @@ return (
     <button onClick={endInterview} className="danger">
       End Interview
     </button>
+    {result && (
+  <div className="result-box">
+    <h3>Score: {result.score.toFixed(2)}</h3>
+    <p>Feedback: {result.feedback}</p>
+  </div>
+)}
   </div>
 )}
 
@@ -776,6 +807,11 @@ return (
     value={topic}
     onChange={(e) => setTopic(e.target.value)}
   />
+  {invalidTopic && (
+  <p style={{ color: "red", marginTop: "8px" }}>
+    Invalid topic. Choose from os, dbms, oops.
+  </p>
+)}
 
   <button onClick={generateQuestion}>
     Generate Question
@@ -784,6 +820,9 @@ return (
 
 {quickQuestion && (
   <div className="card question-box">
+
+
+
     <h2>{quickQuestion}</h2>
 
     <textarea
@@ -794,19 +833,23 @@ return (
     />
 
     <button onClick={startListening}>🎤 Speak</button>
-    <button onClick={submitAnswer}>Submit</button>
+<button onClick={submitAnswer}>Submit</button>
+
+{mode === "quick" && (
+  <button className="secondary" onClick={nextQuickQuestion}>
+    Next Question
+  </button>
+  
+)}
+{result && (
+  <div className="result-box">
+    <h3>Score: {result.score.toFixed(2)}</h3>
+    <p>Feedback: {result.feedback}</p>
+  </div>
+)}
   </div>
 )}
 
-    
-
-    {/* Result */}
-    {result && (
-      <div className="result-box">
-        <h3>Score: {result.score.toFixed(2)}</h3>
-        <p>Feedback: {result.feedback}</p>
-      </div>
-    )}
 
     {/* Admin Panel */}
     <div className="card">
@@ -941,10 +984,6 @@ onClick={() => deleteLeaderboard(item.id)}  >
       </>
 )}
     </div>
-    
-    
-
-
   </div>
 
 );
