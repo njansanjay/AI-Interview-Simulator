@@ -1,6 +1,7 @@
 import { useState,useEffect } from "react";
 import { API_URL } from "./config";
 import "./App.css";
+import { GoogleLogin } from '@react-oauth/google';
 
 function App() {
   const [topic, setTopic] = useState("");
@@ -266,8 +267,9 @@ const startEdit = (q) => {
 };
 
 const logout = () => {
-  localStorage.removeItem("token");
-  setToken(null);
+  localStorage.clear();
+  setToken("");
+  setRole(null);
 };
 
 // update
@@ -618,6 +620,7 @@ useEffect(() => {
 
 if (!token) {
   return (
+    
     <div className="login-container">
   <div className="login-box">
       <h1>Login</h1>
@@ -636,6 +639,34 @@ if (!token) {
 
       {loginMode === "student" && (
         <>
+
+<GoogleLogin
+  onSuccess={credentialResponse => {
+    fetch("http://127.0.0.1:8000/google-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token: credentialResponse.credential
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        setToken(data.token);
+        localStorage.setItem("token", data.token);
+        setRole("student");
+        localStorage.setItem("role", "student");
+        setName(data.name); // from Google
+      }
+    });
+  }}
+  onError={() => {
+    console.log("Login Failed");
+  }}
+/>
+
           <input
             placeholder="Email"
             value={username}
@@ -984,6 +1015,10 @@ onClick={() => deleteLeaderboard(item.id)}  >
       </>
 )}
     </div>
+    
+    
+
+
   </div>
 
 );
