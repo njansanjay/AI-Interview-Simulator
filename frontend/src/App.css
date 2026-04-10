@@ -1,4 +1,4 @@
-/* 🌐 Global */
+🌐 Global
 body {
   margin: 0;
   font-family: "Inter", "Segoe UI", sans-serif;
@@ -188,4 +188,31 @@ button + button {
 
 .logout-btn:hover {
   background: #dc2626;
+}
+
+.user-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  gap: 12px;
+  max-width: 600px;
+  width: 100%;
+}
+
+.user-row span {
+  word-break: break-all;
+}
+
+.user-row button {
+  margin-left: 10px;
+}
+
+.user-result {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #374151
 }
