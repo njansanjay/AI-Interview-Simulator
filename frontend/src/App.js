@@ -33,6 +33,8 @@ function App() {
   const [token, setToken] = useState("");
   const [loginMode, setLoginMode] = useState("none"); 
   const [invalidTopic, setInvalidTopic] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [results, setResults] = useState([]);
 
 useEffect(() => {
   const savedToken = localStorage.getItem("token");
@@ -129,23 +131,20 @@ useEffect(() => {
     .then(res => res.json())
 .then(data => {
   if (data.success) {
-    alert("Login successful");
+  setToken(data.token);
+  localStorage.setItem("token", data.token);
 
-    // ✅ STORE TOKEN
-    setToken(data.token);
-    localStorage.setItem("token", data.token);
+  setRole(data.role);
+  localStorage.setItem("role", data.role);
 
-    // ✅ STORE ROLE (THIS IS WHAT YOU MISSED)
-    setRole(data.role);
-    localStorage.setItem("role", data.role);
-
-  } if (data.role === "student") {
-  const extractedName = username.split("@")[0];
-  setName(extractedName);
-}
-else {
-    alert("Login failed");
+  if (data.role === "student") {
+    const extractedName = username.split("@")[0];
+    setName(extractedName);
   }
+} else {
+  alert("Login failed");
+}
+
 });
 };
 
@@ -259,6 +258,59 @@ const deleteQuestion = (id) => {
       fetchQuestions();
     });
 };
+
+const loadUsers = () => {
+  fetch("http://127.0.0.1:8000/admin/users", {
+    headers: {
+      Authorization: "Bearer " + token
+    }
+  })
+    .then(res => res.json())
+    .then(data => setUsers(data));
+
+  // ALSO LOAD RESULTS
+  fetch("http://127.0.0.1:8000/admin/results", {
+    headers: {
+      Authorization: "Bearer " + token
+    }
+  })
+    .then(res => res.json())
+    .then(data => setResults(data));
+};
+
+
+const deleteUser = (email) => {
+  fetch(`http://127.0.0.1:8000/admin/delete-user/${email}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("token")
+    }
+  })
+    .then(res => res.json())
+    .then(() => loadUsers());
+};
+
+const deleteAdminResult = (id) => {
+  fetch(`http://127.0.0.1:8000/admin/delete-result/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: "Bearer " + token
+    }
+  })
+    .then(res => res.json())
+    .then(() => loadUsers()); // reload everything
+};
+
+const loadResults = () => {
+  fetch("http://127.0.0.1:8000/admin/results", {
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("token")
+    }
+  })
+    .then(res => res.json())
+    .then(data => setResults(data));
+};
+
 // start editing
 const startEdit = (q) => {
   setEditingId(q.id);
@@ -352,11 +404,19 @@ const handleAutoNext = () => {
 
     fetch("http://127.0.0.1:8000/save-result", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { 
+    "Content-Type": "application/json",
+     "Authorization": "Bearer " + token
+   },
   body: JSON.stringify({
-  username: name.trim(),
   score: avg.toFixed(2),
   total: 10
+  
+})
+.then(res => res.json())
+.then(data => {
+  console.log("SAVE RESULT:", data);
+  loadUsers();   // ✅ THIS IS THE IMPORTANT LINE
 })
 });
 
@@ -410,16 +470,21 @@ const endInterview = () => {
     finalScores.reduce((a, b) => a + b, 0) / finalScores.length;
 
   // save result
-  fetch("http://127.0.0.1:8000/save-result", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: name.trim(),
-      score: avg.toFixed(2),
-      total: finalScores.length
-    })
-  });
-
+ fetch("http://127.0.0.1:8000/save-result", {
+  method: "POST",
+  headers: { 
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + token
+  },
+  body: JSON.stringify({
+    score: avg.toFixed(2),
+    total: finalScores.length
+  })
+})
+.then(res => res.json())
+.then(data => {
+  console.log("SAVE RESULT RESPONSE:", data);
+});
   setMode("normal");
 
   alert("Interview Ended! Avg Score: " + avg.toFixed(2));
@@ -1013,7 +1078,60 @@ onClick={() => deleteLeaderboard(item.id)}  >
         <p style={{ color: "green" }}>{adminMsg}</p>
       )}
       </>
+      
 )}
+
+{role === "admin" && (
+  <div>
+    <h2>Admin Dashboard</h2>
+
+    <button onClick={loadUsers}>Load Users</button>
+
+{users.length > 0 && (
+  <>
+    <h3>Users</h3>
+
+    {users.map((u, i) => (
+      <div className="user-row" key={i}>
+        
+        <div>
+          <b>{u.email}</b>
+
+          {/* RESULTS UNDER USER */}
+          {results
+            .filter(r =>
+              
+              r.username === u.email
+            )
+            .map((r, idx) => (
+              <div key={idx} style={{ marginLeft: "15px", marginTop: "5px" }}>
+                <div className="user-result">
+                Score: {r.score}/{r.total}
+        </div>
+
+                <button
+                  style={{ marginLeft: "10px" }}
+                  onClick={() => deleteAdminResult(r.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+        </div>
+
+        <button onClick={() => deleteUser(u.email)}>
+          Delete
+        </button>
+
+      </div>
+    ))}
+  </>
+)}    
+
+
+  </div>
+)}
+
     </div>
     
     
