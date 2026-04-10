@@ -574,3 +574,5 @@ def delete_result_admin(id: int, authorization: str = Header(None)):
     session.close()
     return {"message": "Deleted"}
     
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
