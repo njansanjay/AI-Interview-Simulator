@@ -6,3 +6,4 @@ python-dotenv
 python-jose
 bcrypt
 scikit-learn
+google-auth
