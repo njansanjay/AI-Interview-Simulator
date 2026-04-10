@@ -1,5 +1,5 @@
 import { useState,useEffect } from "react";
-import { API_URL } from "./config";
+import API_URL from "./config";
 import "./App.css";
 import { GoogleLogin } from '@react-oauth/google';
 
@@ -118,7 +118,7 @@ useEffect(() => {
     return;
   }
 }
-    fetch("http://127.0.0.1:8000/login", {
+    fetch(`${API_URL}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -260,8 +260,8 @@ const deleteQuestion = (id) => {
 };
 
 const loadUsers = () => {
-  fetch("http://127.0.0.1:8000/admin/users", {
-    headers: {
+fetch(`${API_URL}/admin/users`, {
+      headers: {
       Authorization: "Bearer " + token
     }
   })
@@ -269,7 +269,7 @@ const loadUsers = () => {
     .then(data => setUsers(data));
 
   // ALSO LOAD RESULTS
-  fetch("http://127.0.0.1:8000/admin/results", {
+ fetch(`${API_URL}/admin/results`, {
     headers: {
       Authorization: "Bearer " + token
     }
@@ -280,7 +280,7 @@ const loadUsers = () => {
 
 
 const deleteUser = (email) => {
-  fetch(`http://127.0.0.1:8000/admin/delete-user/${email}`, {
+  fetch(`${API_URL}/admin/delete-user/${email}`, {
     method: "DELETE",
     headers: {
       Authorization: "Bearer " + localStorage.getItem("token")
@@ -291,7 +291,7 @@ const deleteUser = (email) => {
 };
 
 const deleteAdminResult = (id) => {
-  fetch(`http://127.0.0.1:8000/admin/delete-result/${id}`, {
+  fetch(`${API_URL}/admin/delete-result/${id}`, {
     method: "DELETE",
     headers: {
       Authorization: "Bearer " + token
@@ -302,7 +302,7 @@ const deleteAdminResult = (id) => {
 };
 
 const loadResults = () => {
-  fetch("http://127.0.0.1:8000/admin/results", {
+  fetch(`${API_URL}/admin/results`, {
     headers: {
       Authorization: "Bearer " + localStorage.getItem("token")
     }
@@ -402,7 +402,7 @@ const handleAutoNext = () => {
     const avg =
       updatedScores.reduce((a, b) => a + b, 0) / updatedScores.length;
 
-    fetch("http://127.0.0.1:8000/save-result", {
+    fetch(`${API_URL}/save-result`, {
   method: "POST",
   headers: { 
     "Content-Type": "application/json",
@@ -470,7 +470,7 @@ const endInterview = () => {
     finalScores.reduce((a, b) => a + b, 0) / finalScores.length;
 
   // save result
- fetch("http://127.0.0.1:8000/save-result", {
+ fetch(`${API_URL}/save-result`, {
   method: "POST",
   headers: { 
     "Content-Type": "application/json",
@@ -497,7 +497,7 @@ const fetchHistory = () => {
 };
 
 const deleteResult = (id) => {
-  fetch(`http://127.0.0.1:8000/delete-result/${id}`, {
+  fetch(`${API_URL}/delete-result/${id}`, {
     method: "DELETE",
     headers: {
   "Authorization": "Bearer " + token
@@ -524,7 +524,7 @@ const deleteResult = (id) => {
 };
 
 const clearResults = () => {
-  fetch(`http://127.0.0.1:8000/clear-results`, {
+  fetch(`${API_URL}/clear-results`, {
   method: "DELETE",
   headers: {
   "Authorization": "Bearer " + token
@@ -572,7 +572,7 @@ const clearResults = () => {
 // };
 
 const clearLeaderboard = () => {
-  fetch("http://127.0.0.1:8000/clear-results", {
+  fetch(`${API_URL}/clear-results`, {
     method: "DELETE",
     headers: {
   "Authorization": "Bearer " + token
@@ -590,7 +590,7 @@ const clearLeaderboard = () => {
 };
 
 const clearHistory = () => {
-  fetch("http://127.0.0.1:8000/clear-results", {
+  fetch(`${API_URL}/clear-results`, {
     method: "DELETE",
     headers: {
       "Authorization": "Bearer " + token
@@ -608,7 +608,7 @@ const clearHistory = () => {
 };
 
 const deleteLeaderboard = (id) => {
-  fetch(`http://127.0.0.1:8000/delete-leaderboard/${id}`, {
+  fetch(`${API_URL}/delete-leaderboard/${id}`, {
     method: "DELETE",
     headers: {
       "Authorization": "Bearer " + token
@@ -634,7 +634,7 @@ const deleteLeaderboard = (id) => {
 
 
 const loadLeaderboard = () => {
-  fetch("http://127.0.0.1:8000/leaderboard")
+  fetch(`${API_URL}/leaderboard`)
     .then(res => res.json())
     .then(data => setLeaderboard(data))
     .catch(() => alert("Failed to load leaderboard"));
@@ -706,8 +706,9 @@ if (!token) {
         <>
 
 <GoogleLogin
+  clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
   onSuccess={credentialResponse => {
-    fetch("http://127.0.0.1:8000/google-login", {
+    fetch(`${API_URL}/google-login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -749,7 +750,7 @@ if (!token) {
 
           <button
             onClick={() => {
-              fetch("http://127.0.0.1:8000/signup", {
+              fetch(`${API_URL}/signup`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json"
