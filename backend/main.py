@@ -24,7 +24,6 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 app = FastAPI()
 
 
-
 users = {
     "user": {"password": "123", "role": "user"},
     "admin": {"password": "admin123", "role": "admin"}
