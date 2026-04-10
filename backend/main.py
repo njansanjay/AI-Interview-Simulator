@@ -10,11 +10,11 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi import Header 
 from fastapi import Depends
-from db import SessionLocal, Question, InterviewResult, User
+from backend.db import SessionLocal, Question, InterviewResult, User
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from passlib.hash import bcrypt
-from utils import embed
+from backend.utils import embed
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")

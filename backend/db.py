@@ -1,9 +1,13 @@
 from sqlalchemy import create_engine, Column, Integer, String, PickleType
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import Float
+import os
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "questions.db")
 
-engine = create_engine("sqlite:///questions.db")
+engine = create_engine(f"sqlite:///{DB_PATH}")
+
 
 SessionLocal = sessionmaker(bind=engine)
 

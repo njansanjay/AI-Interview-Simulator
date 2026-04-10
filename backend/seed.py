@@ -2,8 +2,8 @@ import os
 from dotenv import load_dotenv
 from passlib.hash import bcrypt
 
-from db import SessionLocal, Question, User
-from utils import embed
+from backend.db import SessionLocal, Question, User
+from backend.utils import embed
 
 # load env
 load_dotenv()
