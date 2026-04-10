@@ -34,17 +34,6 @@ users = {
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-# ✅ load model
-# model = SentenceTransformer('all-MiniLM-L6-v2')
-model = None
-
-def get_model():
-    global model
-    if model is None:
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-    return model
-
-
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -59,7 +48,7 @@ def create_access_token(data: dict):
 # ✅ CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,17 +62,19 @@ def find_best_match(user_question):
     session = SessionLocal()
     questions = session.query(Question).all()
 
+    if not questions:
+        session.close()
+        return None, 0
+
     user_emb = embed(user_question)
 
-    best_score = -1
-    best_q = None
+    # ✅ NEW FAST METHOD
+    all_embeddings = [q.embedding for q in questions]
+    scores = cosine_similarity([user_emb], all_embeddings)[0]
 
-    for q in questions:
-        score = cosine_similarity([user_emb], [q.embedding])[0][0]
-
-        if score > best_score:
-            best_score = score
-            best_q = q
+    best_index = scores.argmax()
+    best_q = questions[best_index]
+    best_score = scores[best_index]
 
     session.close()
     return best_q, float(best_score)
@@ -239,6 +230,28 @@ def google_login(data: dict):
     except Exception as e:
         print(e)
         return {"success": False}
+
+
+
+@app.get("/admin/results")
+def get_results(token_data: dict = Depends(verify_token)):
+
+    if token_data["role"] != "admin":
+        return {"error": "Not authorized"}
+
+    session = SessionLocal()
+    results = session.query(InterviewResult).all()
+    session.close()
+
+    return [
+        {
+            "id": r.id,
+            "username": r.username,
+            "score": r.score,
+            "total": r.total_questions
+        }
+        for r in results
+    ]
 
 # used_questions = set()
 
@@ -429,18 +442,22 @@ def update_question(qid: int, data: dict, user=Depends(verify_token)):
 #STORE RESULT
 
 @app.post("/save-result")
-def save_result(data: dict):
+def save_result(data: dict, user=Depends(verify_token)):
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     session = SessionLocal()
 
-    username = data.get("username", "Anonymous")
+    username = user["username"]   # ✅ ALWAYS EMAIL FROM TOKEN
     score = float(data.get("score", 0))
     total = data.get("total", 0)
 
     new_result = InterviewResult(
-    username=username,
-    score=score,
-    total_questions=total
-)
+        username=username,
+        score=score,
+        total_questions=total
+    )
 
     session.add(new_result)
     session.commit()
@@ -526,11 +543,35 @@ def leaderboard():
     }
         for r in results
     ]
-@app.get("/users")
-def get_users():
+
+@app.get("/admin/users")
+def get_users(token_data: dict = Depends(verify_token)):
+    
+    if token_data["role"] != "admin":
+        return {"error": "Not authorized"}
+
     session = SessionLocal()
     users = session.query(User).all()
     session.close()
 
     return [{"email": u.email, "role": u.role} for u in users]
+
+
+@app.delete("/admin/delete-result/{id}")
+def delete_result_admin(id: int, authorization: str = Header(None)):
+    data = verify_token(authorization)
+
+    if not data or data["role"] != "admin":
+        return {"message": "Unauthorized"}
+
+    session = SessionLocal()
+
+    result = session.query(InterviewResult).filter_by(id=id).first()
+
+    if result:
+        session.delete(result)
+        session.commit()
+
+    session.close()
+    return {"message": "Deleted"}
     
