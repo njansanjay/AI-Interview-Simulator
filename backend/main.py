@@ -15,8 +15,7 @@ from dotenv import load_dotenv
 from fastapi import HTTPException
 from passlib.hash import bcrypt
 from backend.utils import embed
-from seed import run_seed
-
+from backend.seed import run_seed
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
