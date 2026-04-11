@@ -4,7 +4,7 @@ sqlalchemy
 passlib
 python-dotenv
 python-jose
-bcrypt
+bcrypt==4.0.1
 scikit-learn
 google-auth
 requests
