@@ -33,6 +33,8 @@ if not GOOGLE_CLIENT_ID:
 
 app = FastAPI()
 
+run_seed()
+
 @app.on_event("startup")
 async def startup_event():
     try:

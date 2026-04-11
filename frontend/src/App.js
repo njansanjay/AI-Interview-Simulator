@@ -219,9 +219,15 @@ const generateQuestion = async () => {
 
       setResult(data);
 
-      if (mode === "interview") {
-        setLocked(true);
-      }
+if (mode === "interview") {
+  setLocked(true);
+
+  // ✅ store score immediately
+  setScores(prev => [
+    ...prev,
+    typeof data.score === "number" ? data.score : 0
+  ]);
+}
     })
     .catch((err) => {
       console.error("Submit error:", err);
@@ -363,6 +369,8 @@ const startInterview = () => {
     .then(data => {
       console.log("DATA:", data);
 
+      console.log("QUEUE LENGTH:", shuffled.length);
+
       if (!Array.isArray(data) || data.length === 0) {
         alert("No questions found in DB ❌");
         return;
@@ -407,11 +415,7 @@ const nextQuickQuestion = async () => {
 
 
 const handleAutoNext = () => {
-  const updatedScores = [
-  ...scores,
-  result && typeof result.score === "number" ? result.score : 0
-];
-  setScores(updatedScores);
+  const updatedScores = scores;
 
   const next = currentIndex + 1;
 
