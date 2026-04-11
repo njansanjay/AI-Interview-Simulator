@@ -33,6 +33,10 @@ if not GOOGLE_CLIENT_ID:
 
 app = FastAPI()
 
+from backend.db import Base, engine
+Base.metadata.create_all(bind=engine)
+
+from backend.seed import run_seed
 run_seed()
 
 @app.on_event("startup")

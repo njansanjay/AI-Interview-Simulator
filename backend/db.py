@@ -39,3 +39,4 @@ class InterviewResult(Base):
     total_questions = Column(Integer)
 
 Base.metadata.create_all(engine)
+print("DB PATH:", DB_PATH)

@@ -4,7 +4,7 @@ def run_seed():
     from passlib.hash import bcrypt
     from backend.db import SessionLocal, Question, User
     from backend.utils import embed
-
+    print("🚀 RUNNING SEED...")
     load_dotenv()
 
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
