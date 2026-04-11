@@ -199,28 +199,35 @@ const generateQuestion = async () => {
 
   // submit answer
   const submitAnswer = () => {
-    fetch(`${API_URL}/submit-ai`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        question: question,
-        answer: answer,
-      }),
+  fetch(`${API_URL}/submit-ai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      question: question || quickQuestion,
+      answer: answer,
+    }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data || typeof data.score !== "number") {
+        console.error("Invalid response:", data);
+        setResult({ score: 0, feedback: "Server error" });
+        return;
+      }
+
+      setResult(data);
+
+      if (mode === "interview") {
+        setLocked(true);
+      }
     })
-      .then((res) => res.json())
-      .then((data) => {
-        setResult(data);
-
-if (mode === "interview") {
-  setLocked(true);
-}
-
-
-      })
-      .catch(() => alert("Submit failed"));
-  };
+    .catch((err) => {
+      console.error("Submit error:", err);
+      setResult({ score: 0, feedback: "Server error" });
+    });
+};
 
   useEffect(() => {
   if (locked && mode === "interview") {
@@ -400,7 +407,10 @@ const nextQuickQuestion = async () => {
 
 
 const handleAutoNext = () => {
-  const updatedScores = [...scores, result ? result.score : 0];
+  const updatedScores = [
+  ...scores,
+  result && typeof result.score === "number" ? result.score : 0
+];
   setScores(updatedScores);
 
   const next = currentIndex + 1;
@@ -415,19 +425,19 @@ const handleAutoNext = () => {
   method: "POST",
   headers: { 
     "Content-Type": "application/json",
-     "Authorization": "Bearer " + token
-   },
+    "Authorization": "Bearer " + token
+  },
   body: JSON.stringify({
-  score: avg.toFixed(2),
-  total: 10
-  
+    score: avg.toFixed(2),
+    total: 10
+  })
 })
-.then(res => res.json())
-.then(data => {
-  console.log("SAVE RESULT:", data);
-  loadUsers();   // ✅ THIS IS THE IMPORTANT LINE
-})
-});
+  .then(res => res.json())
+  .then(data => {
+    console.log("SAVE RESULT:", data);
+    loadUsers();
+  })
+  .catch(err => console.error(err));
 
 alert("Interview Finished! Avg Score: " + avg.toFixed(2));
     return;
@@ -894,7 +904,7 @@ return (
     </button>
     {result && (
   <div className="result-box">
-    <h3>Score: {result.score.toFixed(2)}</h3>
+    <h3>Score: {(result?.score ?? 0).toFixed(2)}</h3>
     <p>Feedback: {result.feedback}</p>
   </div>
 )}
@@ -949,7 +959,7 @@ return (
 )}
 {result && (
   <div className="result-box">
-    <h3>Score: {result.score.toFixed(2)}</h3>
+    <h3>Score: {(result?.score ?? 0).toFixed(2)}</h3>
     <p>Feedback: {result.feedback}</p>
   </div>
 )}

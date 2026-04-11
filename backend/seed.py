@@ -48,12 +48,16 @@ def run_seed():
     for topic, text in questions:
         exists = session.query(Question).filter_by(text=text).first()
 
-        if not exists:
-            session.add(Question(
-                text=text,
-                topic=topic,
-                embedding=embed(text)
-            ))
+    if exists:
+    # 🔥 UPDATE OLD EMBEDDINGS
+        exists.embedding = embed(text)
+        exists.topic = topic
+    else:
+        session.add(Question(
+        text=text,
+        topic=topic,
+        embedding=embed(text)
+    ))
 
     session.commit()
     session.close()

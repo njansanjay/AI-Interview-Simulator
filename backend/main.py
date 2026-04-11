@@ -16,7 +16,14 @@ from fastapi import HTTPException
 from passlib.hash import bcrypt
 from backend.utils import embed
 from backend.seed import run_seed
-load_dotenv()
+from backend.db import Base, engine
+Base.metadata.create_all(bind=engine)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+
+load_dotenv(ENV_PATH)
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise Exception("SECRET_KEY missing in ENV")
@@ -309,9 +316,15 @@ def submit_ai_answer(data: dict):
                 "feedback": "No matching question in database"
             }
 
+        user_vec = embed(user_answer)
+        db_vec = best_q.embedding
+
+        if len(user_vec) != len(db_vec):
+            print("Vector size Mismatch:", len(user_vec),len(db_vec))
+            return {"score": 0, "feedback": "Embedding mismatch"}
         answer_score = cosine_similarity(
-            [embed(user_answer)],
-            [best_q.embedding]
+            [user_vec],
+            [db_vec]
         )[0][0]
 
         feedback = get_feedback(user_answer)
@@ -329,6 +342,7 @@ def submit_ai_answer(data: dict):
             "score": 0,
             "feedback": "Server error"
         }
+
 
 @app.post("/add-question")
 def add_question(data: dict, user=Depends(verify_token)):
