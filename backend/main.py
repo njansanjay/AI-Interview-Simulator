@@ -18,19 +18,21 @@ from backend.utils import embed
 from backend.seed import run_seed
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise Exception("SECRET_KEY missing in ENV")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+if not GOOGLE_CLIENT_ID:
+    print("⚠️ GOOGLE_CLIENT_ID missing")
 
 app = FastAPI()
-run_seed()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # for now allow all
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+@app.on_event("startup")
+async def startup_event():
+    try:
+        run_seed()
+        print("✅ Seed executed safely")
+    except Exception as e:
+        print("❌ Seed failed:", e)
 
 users = {
     "user": {"password": "123", "role": "user"},
@@ -586,4 +588,3 @@ if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000)
 
 
-print("🌱 Auto seeding triggered")

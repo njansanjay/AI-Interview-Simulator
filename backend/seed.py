@@ -8,11 +8,14 @@ def run_seed():
     load_dotenv()
 
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD").strip()
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+        print("❌ Admin credentials missing")
+        return
 
     session = SessionLocal()
 
-    # create admin
     admin = session.query(User).filter_by(email=ADMIN_EMAIL).first()
 
     if not admin:
@@ -30,13 +33,11 @@ def run_seed():
         ("os", "What is paging?"),
         ("os", "What is segmentation?"),
         ("os", "Explain virtual memory"),
-
         ("dbms", "What is normalization?"),
         ("dbms", "Explain ACID properties"),
         ("dbms", "What is indexing?"),
         ("dbms", "What is primary key?"),
         ("dbms", "What is foreign key?"),
-
         ("oops", "What is polymorphism?"),
         ("oops", "Explain inheritance"),
         ("oops", "What is encapsulation?"),
