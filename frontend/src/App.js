@@ -369,14 +369,14 @@ const startInterview = () => {
     .then(data => {
       console.log("DATA:", data);
 
-      console.log("QUEUE LENGTH:", shuffled.length);
-
       if (!Array.isArray(data) || data.length === 0) {
         alert("No questions found in DB ❌");
         return;
       }
 
       const shuffled = data.sort(() => 0.5 - Math.random()).slice(0, 10);
+
+      console.log("QUEUE LENGTH:", shuffled.length); // ✅ moved AFTER
 
       if (!shuffled[0]) {
         alert("Questions not loaded properly ❌");
@@ -388,7 +388,7 @@ const startInterview = () => {
       setScores([]);
       setMode("interview");
 
-      setQuestion(shuffled[0].text); // safe now ✅
+      setQuestion(shuffled[0].text);
       setAnswer("");
       setResult(null);
 

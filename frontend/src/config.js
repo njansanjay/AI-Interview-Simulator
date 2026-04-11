@@ -1,3 +1,2 @@
-const API_URL = "https://ai-interview-simulator-w7xt.onrender.com";
-
+const API_URL = "http://localhost:8000";
 export default API_URL;
