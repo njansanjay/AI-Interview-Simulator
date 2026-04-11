@@ -353,27 +353,36 @@ const updateQuestion = () => {
 const startInterview = () => {
   fetch(`${API_URL}/public-questions`)
     .then(res => res.json())
-   .then(data => {
-  console.log("DATA:", data);
-    setQuickQuestion(""); 
-  if (!Array.isArray(data)) {
-    alert("Not authorized or no questions");
-    return;
-  }
+    .then(data => {
+      console.log("DATA:", data);
 
-  const shuffled = data.sort(() => 0.5 - Math.random()).slice(0, 10);
+      if (!Array.isArray(data) || data.length === 0) {
+        alert("No questions found in DB ❌");
+        return;
+      }
+
+      const shuffled = data.sort(() => 0.5 - Math.random()).slice(0, 10);
+
+      if (!shuffled[0]) {
+        alert("Questions not loaded properly ❌");
+        return;
+      }
 
       setQueue(shuffled);
       setCurrentIndex(0);
       setScores([]);
       setMode("interview");
-      setResult(null);
-      setQuestion(shuffled[0].text);
+
+      setQuestion(shuffled[0].text); // safe now ✅
       setAnswer("");
       setResult(null);
 
       setTimeLeft(30);
       setLocked(false);
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Failed to load questions ❌");
     });
 };
 

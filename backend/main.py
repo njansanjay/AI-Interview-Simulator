@@ -15,12 +15,22 @@ from dotenv import load_dotenv
 from fastapi import HTTPException
 from passlib.hash import bcrypt
 from backend.utils import embed
+from seed import run_seed
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 app = FastAPI()
+run_seed()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # for now allow all
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 users = {
@@ -575,3 +585,6 @@ def delete_result_admin(id: int, authorization: str = Header(None)):
 
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000)
+
+
+print("🌱 Auto seeding triggered")

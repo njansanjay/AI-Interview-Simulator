@@ -1,76 +1,60 @@
-import os
-from dotenv import load_dotenv
-from passlib.hash import bcrypt
+def run_seed():
+    import os
+    from dotenv import load_dotenv
+    from passlib.hash import bcrypt
+    from backend.db import SessionLocal, Question, User
+    from backend.utils import embed
 
-from backend.db import SessionLocal, Question, User
-from backend.utils import embed
+    load_dotenv()
 
-# load env
-load_dotenv()
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD").strip()
 
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD").strip()
+    session = SessionLocal()
 
-admin = User(
-    email=ADMIN_EMAIL,
-    password=bcrypt.hash(ADMIN_PASSWORD[:72]),
-    role="admin"
-)
+    # create admin
+    admin = session.query(User).filter_by(email=ADMIN_EMAIL).first()
 
-# questions list
-questions = [
-    ("os", "What is process vs thread?"),
-    ("os", "Explain deadlock"),
-    ("os", "What is paging?"),
-    ("os", "What is segmentation?"),
-    ("os", "Explain virtual memory"),
-
-    ("dbms", "What is normalization?"),
-    ("dbms", "Explain ACID properties"),
-    ("dbms", "What is indexing?"),
-    ("dbms", "What is primary key?"),
-    ("dbms", "What is foreign key?"),
-
-    ("oops", "What is polymorphism?"),
-    ("oops", "Explain inheritance"),
-    ("oops", "What is encapsulation?"),
-    ("oops", "What is abstraction?"),
-    ("oops", "What is class and object?")
-]
-
-# ✅ CREATE SESSION ONCE
-session = SessionLocal()
-
-# =========================
-# CREATE ADMIN
-# =========================
-admin = session.query(User).filter_by(email=ADMIN_EMAIL).first()
-
-if not admin:
-    admin = User(
-        email=ADMIN_EMAIL,
-        password=bcrypt.hash(ADMIN_PASSWORD[:72]),  # ✅ HASH PASSWORD
-        role="admin"
-    )
-    session.add(admin)
-    session.commit()
-
-
-# =========================
-# ADD QUESTIONS
-# =========================
-for topic, text in questions:
-    exists = session.query(Question).filter_by(text=text).first()
-
-    if not exists:
-        new_q = Question(
-            text=text,
-            topic=topic,
-            embedding=embed(text)
+    if not admin:
+        admin = User(
+            email=ADMIN_EMAIL,
+            password=bcrypt.hash(ADMIN_PASSWORD[:72]),
+            role="admin"
         )
-        session.add(new_q)
+        session.add(admin)
+        session.commit()
 
-session.commit()
-session.close()
+    questions = [
+        ("os", "What is process vs thread?"),
+        ("os", "Explain deadlock"),
+        ("os", "What is paging?"),
+        ("os", "What is segmentation?"),
+        ("os", "Explain virtual memory"),
 
-print("✅ Seeding completed.")
+        ("dbms", "What is normalization?"),
+        ("dbms", "Explain ACID properties"),
+        ("dbms", "What is indexing?"),
+        ("dbms", "What is primary key?"),
+        ("dbms", "What is foreign key?"),
+
+        ("oops", "What is polymorphism?"),
+        ("oops", "Explain inheritance"),
+        ("oops", "What is encapsulation?"),
+        ("oops", "What is abstraction?"),
+        ("oops", "What is class and object?")
+    ]
+
+    for topic, text in questions:
+        exists = session.query(Question).filter_by(text=text).first()
+
+        if not exists:
+            session.add(Question(
+                text=text,
+                topic=topic,
+                embedding=embed(text)
+            ))
+
+    session.commit()
+    session.close()
+
+    print("✅ Seed executed")
