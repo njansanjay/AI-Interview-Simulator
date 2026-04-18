@@ -1,6 +1,6 @@
 🎯 Interview Simulator — AI-Based Mock Interview Platform
 
-"Status" (https://img.shields.io/badge/status-complete-brightgreen?style=for-the-badge)
+https://img.shields.io/badge/status-complete-brightgreen?style=for-the-badge
 
 Interview Simulator is a full-stack web application that helps users practice technical interviews with AI-based evaluation, real-time scoring, and admin-managed question banks.
 
